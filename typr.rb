@@ -3,6 +3,7 @@
 
 require 'io/console'
 require 'time'
+require 'optparse'
 
 # A CLI typing speed test application that measures typing speed and accuracy.
 #
@@ -30,6 +31,13 @@ require 'time'
 #   test = Typr.new
 #   test.run
 class Typr
+  # Load and filter words once when class loads
+  WORDS = File.readlines(File.join(File.dirname(__FILE__), 'db', 'oxford_3000.txt'))
+              .map(&:strip)
+              .reject(&:empty?)
+              .select { |word| word.match?(/^[a-zA-Z]+$/) && word.length >= 3 }
+              .freeze
+
   # Terminal color codes
   COLORS = {
     gray: "\e[90m",
@@ -54,8 +62,9 @@ class Typr
     enter: [13, 10]
   }.freeze
 
-  def initialize
-    @test_text = 'The quick brown fox jumps over the lazy dog. This is a sample text for testing your typing speed and accuracy.'
+  def initialize(word_count = 25)
+    @word_count = word_count
+    @test_text = generate_test_text
     initialize_state
   end
 
@@ -66,6 +75,11 @@ class Typr
   end
 
   private
+
+  def generate_test_text
+    selected_words = WORDS.sample(@word_count)
+    selected_words.join(' ') + '.'
+  end
 
   def initialize_state
     @words = @test_text.split(' ')
@@ -385,6 +399,21 @@ class Typr
 end
 
 if __FILE__ == $PROGRAM_NAME
-  test = Typr.new
+  options = {}
+  OptionParser.new do |opts|
+    opts.banner = "Usage: typr [options]"
+    
+    opts.on("-l", "--length NUMBER", Integer, "Number of words to generate (default: 25)") do |length|
+      options[:length] = length
+    end
+    
+    opts.on("-h", "--help", "Show this help message") do
+      puts opts
+      exit
+    end
+  end.parse!
+
+  word_count = options[:length] || 25
+  test = Typr.new(word_count)
   test.run
 end
