@@ -2,6 +2,7 @@ class Typr < Formula
   desc "Terminal-based typing speed test with real-time feedback"
   homepage "https://github.com/willyamarcand/typr"
   url "https://github.com/willyamarcand/typr.git", branch: "main"
+  version "0.1.0"
   head "https://github.com/willyamarcand/typr.git"
   license "MIT"
 
