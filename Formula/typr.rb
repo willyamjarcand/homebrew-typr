@@ -1,8 +1,8 @@
 class Typr < Formula
   desc "Terminal-based typing speed test with real-time feedback"
   homepage "https://github.com/willyamarcand/typr"
-  url "https://github.com/willyamarcand/typr/archive/v0.1.0.tar.gz"
-  sha256 "YOUR_SHA256_HERE" # Generate this when you create the release
+  url "https://github.com/willyamarcand/typr.git", branch: "main"
+  head "https://github.com/willyamarcand/typr.git"
   license "MIT"
 
   depends_on "ruby"
