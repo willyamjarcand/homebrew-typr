@@ -1,6 +1,5 @@
-# frozen_string_literal: true
-
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'io/console'
 require 'time'
@@ -81,29 +80,27 @@ class Typr
     @word_complete = false
   end
 
-  private
-
   def setup_display
     print TERMINAL[:clear_screen]
-    print "\e[?25l"  # Hide the real cursor
+    print "\e[?25l" # Hide the real cursor
     puts "Type the text below:\n"
     display_text
   end
 
   def display_text
     # Build the entire display as a string first, then print it all at once
-    output = ""
-    
+    output = ''
+
     @words.each_with_index do |word, word_index|
       output += build_word_display(word, word_index)
     end
-    
+
     output += "\n\nProgress: #{@current_word_index}/#{@words.length} words"
-    
+
     # Clear and print everything at once
-    print "\e[3;1H\e[J"  # Move to position and clear from cursor to end of screen
+    print "\e[3;1H\e[J" # Move to position and clear from cursor to end of screen
     print output
-    print "\e[3;1H"  # Move cursor back to text position
+    print "\e[3;1H" # Move cursor back to text position
   end
 
   def position_cursor
@@ -136,7 +133,7 @@ class Typr
   end
 
   def build_completed_word(word, word_index)
-    result = ""
+    result = ''
     if @completed_words[word_index]
       typed_word = @completed_words[word_index]
       result += build_typed_word_characters(word, typed_word)
@@ -151,8 +148,8 @@ class Typr
   def build_typed_word_characters(word, typed_word)
     # Clean the typed word to remove any potential cursor formatting
     clean_typed_word = typed_word.gsub(/\e\[[0-9;]*m/, '')
-    result = ""
-    
+    result = ''
+
     word.chars.each_with_index do |char, char_index|
       if char_index < clean_typed_word.length
         color = clean_typed_word[char_index] == char ? :white : :red
@@ -165,13 +162,13 @@ class Typr
   end
 
   def build_extra_characters(word, typed_word)
-    return "" unless typed_word.length > word.length
+    return '' unless typed_word.length > word.length
 
     # Clean the typed word to remove any potential cursor formatting
     clean_typed_word = typed_word.gsub(/\e\[[0-9;]*m/, '')
-    return "" unless clean_typed_word.length > word.length
+    return '' unless clean_typed_word.length > word.length
 
-    result = ""
+    result = ''
     extra_chars = clean_typed_word[word.length..-1]
     extra_chars.chars.each do |char|
       result += colorize(char, :red)
@@ -180,7 +177,7 @@ class Typr
   end
 
   def build_current_word(word, word_index)
-    result = ""
+    result = ''
     word.chars.each_with_index do |char, char_index|
       result += build_current_word_character(char, char_index, word_index)
     end
@@ -201,16 +198,16 @@ class Typr
   end
 
   def build_current_word_extras(word)
-    result = ""
+    result = ''
     if @typed_chars.length > word.length
       extra_chars = @typed_chars[word.length..-1]
       extra_chars.each { |char| result += colorize(char, :red) }
 
-      if @current_char_index > word.length
-        result += cursor_space
-      else
-        result += ' '
-      end
+      result += if @current_char_index > word.length
+                  cursor_space
+                else
+                  ' '
+                end
     elsif @current_char_index >= word.length
       result += cursor_space
     else
@@ -278,7 +275,10 @@ class Typr
   end
 
   def test_complete?
-    return true if @current_word_index >= @words.length
+    if @current_word_index >= @words.length
+      @end_time = Time.now
+      return true
+    end
 
     if on_last_word? && last_word_completed_correctly?
       @end_time = Time.now
