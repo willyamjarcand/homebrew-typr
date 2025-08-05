@@ -22,7 +22,7 @@ brew install typr
 ### Manual Installation
 
 ```bash
-git clone https://github.com/willyamjarcand/typr.git
+git clone https://github.com/willyamjarcand/homebrew-typr.git
 cd typr
 ruby typr.rb
 ```
