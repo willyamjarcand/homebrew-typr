@@ -2,7 +2,7 @@ class Typr < Formula
   desc 'Terminal-based typing speed test with real-time feedback'
   homepage 'https://github.com/willyamjarcand/homebrew-typr'
   url 'https://github.com/willyamjarcand/homebrew-typr/archive/v0.1.0.tar.gz'
-  sha256 '0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5'
+  sha256 '060cadd30160aebb902c67e2e1865c654b1c8edf3c079ab337a77b73f88155d7'
   head 'https://github.com/willyamjarcand/homebrew-typr.git'
   license 'MIT'
 
