@@ -34,6 +34,10 @@ Simply run:
 typr
 ```
 
+### demo
+
+Uploading typr_demo (1).mov…
+
 **Controls:**
 - Type to test your speed
 - Backspace to correct mistakes (disabled after space)
