@@ -31,12 +31,20 @@ require 'optparse'
 #   test = Typr.new
 #   test.run
 class Typr
-  # Load and filter words once when class loads
-  WORDS = File.readlines(File.join(File.dirname(__FILE__), 'db', 'oxford_3000.txt'))
-              .map(&:strip)
-              .reject(&:empty?)
-              .select { |word| word.match?(/^[a-zA-Z]+$/) && word.length >= 3 }
-              .freeze
+  # Load all words once when class loads
+  ALL_WORDS = File.readlines(File.join(File.dirname(__FILE__), 'db', 'oxford_3000.txt'))
+                  .map(&:strip)
+                  .reject(&:empty?)
+                  .select { |word| word.match?(/^[a-zA-Z]+$/) && word.length >= 3 }
+                  .freeze
+
+  # Difficulty-based word filtering
+  DIFFICULTY_FILTERS = {
+    'easy' => ->(word) { word.length < 5 },
+    'normal' => ->(word) { word.length < 7 },
+    'hard' => ->(word) { word.length < 10 },
+    'masochist' => ->(word) { word.length > 11 }
+  }.freeze
 
   # Terminal color codes
   COLORS = {
@@ -63,8 +71,9 @@ class Typr
     tab: 9
   }.freeze
 
-  def initialize(word_count = 25)
+  def initialize(word_count = 25, difficulty = 'normal')
     @word_count = word_count
+    @difficulty = difficulty
     @test_text = generate_test_text
     @terminal_width = IO.console.winsize[1] - 10 # Leave 10 chars padding on right
     initialize_state
@@ -79,7 +88,8 @@ class Typr
   private
 
   def generate_test_text
-    selected_words = WORDS.sample(@word_count)
+    filtered_words = ALL_WORDS.select(&DIFFICULTY_FILTERS[@difficulty])
+    selected_words = filtered_words.sample(@word_count)
     selected_words.join(' ') + '.'
   end
 
@@ -359,13 +369,45 @@ class Typr
     return if cannot_backspace?
 
     @tab_pressed = false
-    @typed_chars.pop
-    @current_char_index -= 1 if @current_char_index > 0
-    @total_chars -= 1 if @total_chars > 0
+    
+    # If current word is empty, try to go back to previous word
+    if @typed_chars.empty? && @current_word_index > 0
+      go_back_to_previous_word
+    else
+      # Normal backspace within current word
+      @typed_chars.pop
+      @current_char_index -= 1 if @current_char_index > 0
+      @total_chars -= 1 if @total_chars > 0
+    end
   end
 
   def cannot_backspace?
-    @word_complete || @typed_chars.empty?
+    @word_complete || (@typed_chars.empty? && cannot_go_back_to_previous_word?)
+  end
+
+  def cannot_go_back_to_previous_word?
+    return true if @current_word_index == 0
+    
+    # Check if all previous words are correct
+    (0...@current_word_index).all? do |i|
+      word_is_correct?(i)
+    end
+  end
+
+  def word_is_correct?(word_index)
+    return false unless @completed_words[word_index]
+    
+    expected_word = @words[word_index]
+    typed_word = @completed_words[word_index].gsub(/\e\[[0-9;]*m/, '') # Remove ANSI codes
+    typed_word == expected_word
+  end
+
+  def go_back_to_previous_word
+    @current_word_index -= 1
+    @typed_chars = @completed_words[@current_word_index].gsub(/\e\[[0-9;]*m/, '').chars
+    @current_char_index = @typed_chars.length
+    @completed_words[@current_word_index] = nil
+    @word_complete = false
   end
 
   def handle_tab
@@ -447,6 +489,11 @@ if __FILE__ == $PROGRAM_NAME
       options[:length] = length
     end
 
+    opts.on('-d', '--difficulty LEVEL', ['easy', 'normal', 'hard', 'masochist'], 
+            'Difficulty level: easy (<5 chars), normal (<7 chars), hard (<10 chars), masochist (>11 chars) (default: normal)') do |difficulty|
+      options[:difficulty] = difficulty
+    end
+
     opts.on('-h', '--help', 'Show this help message') do
       puts opts
       exit
@@ -454,6 +501,7 @@ if __FILE__ == $PROGRAM_NAME
   end.parse!
 
   word_count = options[:length] || 25
-  test = Typr.new(word_count)
+  difficulty = options[:difficulty] || 'normal'
+  test = Typr.new(word_count, difficulty)
   test.run
 end
