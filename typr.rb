@@ -59,12 +59,14 @@ class Typr
     ctrl_c: 3,
     backspace: [127, 8],
     space: 32,
-    enter: [13, 10]
+    enter: [13, 10],
+    tab: 9
   }.freeze
 
   def initialize(word_count = 25)
     @word_count = word_count
     @test_text = generate_test_text
+    @terminal_width = IO.console.winsize[1] - 10 # Leave 10 chars padding on right
     initialize_state
   end
 
@@ -92,6 +94,7 @@ class Typr
     @correct_chars = 0
     @total_chars = 0
     @word_complete = false
+    @tab_pressed = false
   end
 
   def setup_display
@@ -102,13 +105,28 @@ class Typr
   end
 
   def display_text
-    # Build the entire display as a string first, then print it all at once
-    output = ''
+    # Build the entire display as lines, wrapping when needed
+    lines = []
+    current_line = ''
 
     @words.each_with_index do |word, word_index|
-      output += build_word_display(word, word_index)
+      word_display = build_word_display(word, word_index)
+      # Remove ANSI escape codes to calculate actual display width
+      word_width = word_display.gsub(/\e\[[0-9;]*m/, '').length
+
+      # Check if adding this word would exceed terminal width
+      if current_line.gsub(/\e\[[0-9;]*m/, '').length + word_width > @terminal_width
+        lines << current_line.rstrip # Remove trailing space
+        current_line = word_display
+      else
+        current_line += word_display
+      end
     end
 
+    # Add the last line if it has content
+    lines << current_line.rstrip if current_line.strip.length > 0
+
+    output = lines.join("\n")
     output += "\n\nProgress: #{@current_word_index}/#{@words.length} words"
 
     # Clear and print everything at once
@@ -275,6 +293,8 @@ class Typr
       handle_backspace
     when KEYS[:space]
       handle_space
+    when KEYS[:tab]
+      handle_tab
     when *KEYS[:enter]
       # Do nothing for enter
     else
@@ -283,8 +303,9 @@ class Typr
   end
 
   def exit_test
-    print "\e[?25h"  # Show the real cursor again
-    puts "\nTest cancelled."
+    print TERMINAL[:clear_screen] # Clear entire screen
+    print "\e[?25h" # Show the real cursor again
+    puts 'Test cancelled.'
     exit
   end
 
@@ -314,6 +335,7 @@ class Typr
   def handle_character(char)
     return if @word_complete
 
+    @tab_pressed = false
     @typed_chars << char
     @total_chars += 1
 
@@ -336,6 +358,7 @@ class Typr
   def handle_backspace
     return if cannot_backspace?
 
+    @tab_pressed = false
     @typed_chars.pop
     @current_char_index -= 1 if @current_char_index > 0
     @total_chars -= 1 if @total_chars > 0
@@ -345,9 +368,24 @@ class Typr
     @word_complete || @typed_chars.empty?
   end
 
+  def handle_tab
+    @tab_pressed = true
+  end
+
   def handle_space
+    if @tab_pressed
+      restart_test
+      return
+    end
+
     save_current_word
     move_to_next_word
+  end
+
+  def restart_test
+    @test_text = generate_test_text
+    initialize_state
+    setup_display
   end
 
   def save_current_word
@@ -362,23 +400,25 @@ class Typr
   end
 
   def show_results
-    print "\e[?25h"  # Show the real cursor again
+    print TERMINAL[:clear_screen] # Clear entire screen
+    print "\e[?25h" # Show the real cursor again
     print_results_header
     print_statistics
   end
 
   def print_results_header
-    puts "\n\n#{'=' * 50}"
+    header_width = [@terminal_width + 10, 50].min  # Use terminal width or 50, whichever is smaller
+    puts '=' * header_width
     puts 'Test Complete!'
-    puts '=' * 50
+    puts '=' * header_width
   end
 
   def print_statistics
     stats = calculate_statistics
 
+    puts "WPM: #{stats[:wpm]}"
     puts "Time: #{stats[:duration]} seconds"
     puts "Words typed: #{stats[:words_typed]}"
-    puts "WPM: #{stats[:wpm]}"
     puts "Accuracy: #{stats[:accuracy]}%"
     puts "Correct characters: #{@correct_chars}/#{@total_chars}"
   end
@@ -401,13 +441,13 @@ end
 if __FILE__ == $PROGRAM_NAME
   options = {}
   OptionParser.new do |opts|
-    opts.banner = "Usage: typr [options]"
-    
-    opts.on("-l", "--length NUMBER", Integer, "Number of words to generate (default: 25)") do |length|
+    opts.banner = 'Usage: typr [options]'
+
+    opts.on('-l', '--length NUMBER', Integer, 'Number of words to generate (default: 25)') do |length|
       options[:length] = length
     end
-    
-    opts.on("-h", "--help", "Show this help message") do
+
+    opts.on('-h', '--help', 'Show this help message') do
       puts opts
       exit
     end
