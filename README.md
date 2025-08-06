@@ -36,7 +36,7 @@ typr
 
 ### demo
 
-Uploading typr_demo (1).mov…
+https://github.com/user-attachments/assets/dbbc2497-5041-4fc2-8cd2-8aa7222c6ac4
 
 **Controls:**
 - Type to test your speed
