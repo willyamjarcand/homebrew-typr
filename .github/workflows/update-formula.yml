@@ -1,0 +1,40 @@
+name: Update Homebrew Formula
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  update-formula:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get version and SHA
+        id: vars
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/}
+          SHA=$(git rev-parse HEAD)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha=$SHA" >> $GITHUB_OUTPUT
+
+      - name: Update Formula
+        run: |
+          sed -i "s|url '.*'|url 'https://github.com/${{ github.repository }}/archive/${{ steps.vars.outputs.version }}.tar.gz'|" Formula/typr.rb
+          sed -i "s|sha256 '.*'|sha256 '${{ steps.vars.outputs.sha }}'|" Formula/typr.rb
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Update formula for ${{ steps.vars.outputs.version }} release"
+          title: "Update formula for ${{ steps.vars.outputs.version }} release"
+          body: |
+            Auto-generated update for version ${{ steps.vars.outputs.version }}
+            - Updated URL to point to ${{ steps.vars.outputs.version }} release
+            - Updated SHA256 to ${{ steps.vars.outputs.sha }}
+          branch: update-formula-${{ steps.vars.outputs.version }}
