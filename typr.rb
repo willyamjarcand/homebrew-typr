@@ -71,9 +71,10 @@ class Typr
     tab: 9
   }.freeze
 
-  def initialize(word_count = 25, difficulty = 'normal')
+  def initialize(word_count = 25, difficulty = 'normal', mode = 'words')
     @word_count = word_count
     @difficulty = difficulty
+    @mode = mode
     @test_text = generate_test_text
     @terminal_width = IO.console.winsize[1] - 10 # Leave 10 chars padding on right
     initialize_state
@@ -88,9 +89,47 @@ class Typr
   private
 
   def generate_test_text
+    case @mode
+    when 'symbols'
+      generate_symbols_text
+    when 'numbers'
+      generate_numbers_text
+    when 'quotes'
+      generate_quotes_text
+    else
+      generate_words_text
+    end
+  end
+
+  def generate_words_text
     filtered_words = ALL_WORDS.select(&DIFFICULTY_FILTERS[@difficulty])
     selected_words = filtered_words.sample(@word_count)
     selected_words.join(' ') + '.'
+  end
+
+  def generate_symbols_text
+    symbols = %w[! @ # $ % ^ & * ( ) - _ = + [ ] { } | \\ : ; " ' < > , . ? / ~ `]
+    Array.new(@word_count) { symbols.sample(rand(3..8)).join }.join(' ')
+  end
+
+  def generate_numbers_text
+    Array.new(@word_count) { rand(10**(rand(3..6))).to_s }.join(' ')
+  end
+
+  def generate_quotes_text
+    quotes_file = File.join(File.dirname(__FILE__), 'db', 'quotes.yml')
+    if File.exist?(quotes_file)
+      require 'yaml'
+      quotes_data = YAML.load_file(quotes_file)['quotes'] || []
+      if quotes_data.any?
+        @selected_quote_data = quotes_data.sample
+        return @selected_quote_data['quote']
+      end
+    end
+    
+    # Fallback if no quotes file exists
+    @selected_quote_data = { 'quote' => "The only way to do great work is to love what you do.", 'source' => "Steve Jobs" }
+    @selected_quote_data['quote']
   end
 
   def initialize_state
@@ -369,7 +408,7 @@ class Typr
     return if cannot_backspace?
 
     @tab_pressed = false
-    
+
     # If current word is empty, try to go back to previous word
     if @typed_chars.empty? && @current_word_index > 0
       go_back_to_previous_word
@@ -387,7 +426,7 @@ class Typr
 
   def cannot_go_back_to_previous_word?
     return true if @current_word_index == 0
-    
+
     # Check if all previous words are correct
     (0...@current_word_index).all? do |i|
       word_is_correct?(i)
@@ -396,7 +435,7 @@ class Typr
 
   def word_is_correct?(word_index)
     return false unless @completed_words[word_index]
-    
+
     expected_word = @words[word_index]
     typed_word = @completed_words[word_index].gsub(/\e\[[0-9;]*m/, '') # Remove ANSI codes
     typed_word == expected_word
@@ -449,7 +488,7 @@ class Typr
   end
 
   def print_results_header
-    header_width = [@terminal_width + 10, 50].min  # Use terminal width or 50, whichever is smaller
+    header_width = [@terminal_width + 10, 50].min # Use terminal width or 50, whichever is smaller
     puts '=' * header_width
     puts 'Test Complete!'
     puts '=' * header_width
@@ -463,6 +502,10 @@ class Typr
     puts "Words typed: #{stats[:words_typed]}"
     puts "Accuracy: #{stats[:accuracy]}%"
     puts "Correct characters: #{@correct_chars}/#{@total_chars}"
+    
+    if @mode == 'quotes' && @selected_quote_data
+      puts "Quote from: #{@selected_quote_data['source']}"
+    end
   end
 
   def calculate_statistics
@@ -489,9 +532,14 @@ if __FILE__ == $PROGRAM_NAME
       options[:length] = length
     end
 
-    opts.on('-d', '--difficulty LEVEL', ['easy', 'normal', 'hard', 'masochist'], 
+    opts.on('-d', '--difficulty LEVEL', %w[easy normal hard masochist],
             'Difficulty level: easy (<5 chars), normal (<7 chars), hard (<10 chars), masochist (>11 chars) (default: normal)') do |difficulty|
       options[:difficulty] = difficulty
+    end
+
+    opts.on('-m', '--mode MODE', %w[words symbols numbers quotes],
+            'Practice mode: words (default), symbols, numbers, or quotes') do |mode|
+      options[:mode] = mode
     end
 
     opts.on('-h', '--help', 'Show this help message') do
@@ -502,6 +550,7 @@ if __FILE__ == $PROGRAM_NAME
 
   word_count = options[:length] || 25
   difficulty = options[:difficulty] || 'normal'
-  test = Typr.new(word_count, difficulty)
+  mode = options[:mode] || 'words'
+  test = Typr.new(word_count, difficulty, mode)
   test.run
 end
